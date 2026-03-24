@@ -2,58 +2,124 @@ import streamlit as st
 import database as db
 import llm
 from datetime import datetime
-from streamlit_calendar import calendar
 
-st.set_page_config(page_title="Inbox - AI Task Manager", layout="wide", page_icon="✅")
+st.set_page_config(page_title="To Do", layout="wide", page_icon="✔️")
 
-# Inject Custom Premium CSS
+# Inject Custom MS To Do CSS
 st.markdown("""
 <style>
-    /* Premium Look Elements */
+    /* Global Colors and Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
     .stApp {
-        background-color: #0E1117;
-        color: #FAFAFA;
+        background-color: #FAF9F8;
     }
-    .task-card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 12px;
-        transition: transform 0.2s, background 0.2s;
+    
+    /* Hide Streamlit Header & default padding */
+    header {visibility: hidden;}
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 0rem;
+        max-width: 100%;
     }
-    .task-card:hover {
-        transform: translateY(-2px);
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    .task-title {
-        font-size: 1.1rem;
+    
+    /* Custom Top Bar */
+    .top-bar {
+        background-color: #2564CF;
+        color: white;
+        padding: 12px 20px;
+        font-size: 16px;
         font-weight: 600;
-        margin-bottom: 4px;
-        color: #FFFFFF;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #F3F2F1;
+        border-right: none;
+    }
+    
+    /* MS To Do Task Row Styling applying to container */
+    .task-container {
+        background-color: #FFFFFF;
+        border: 1px solid #EDEBE9;
+        border-radius: 4px;
+        padding: 5px 15px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        transition: background 0.2s;
+    }
+    .task-container:hover {
+        background-color: #F3F2F1;
+    }
+    
+    .task-title {
+        font-size: 14px;
+        color: #201F1E;
+        margin: 0;
+        padding: 0;
+        font-weight: 400;
     }
     .task-meta {
-        font-size: 0.85rem;
-        color: #A0AEC0;
-        margin-bottom: 8px;
+        font-size: 12px;
+        color: #605E5C;
+        margin-top: 2px;
     }
-    .task-tag {
-        display: inline-block;
-        background: #3182CE;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-right: 6px;
+    
+    /* Add Task Bar */
+    .add-task-bar {
+        background-color: #FFFFFF;
+        border: 1px solid #EDEBE9;
+        border-radius: 4px;
+        padding: 10px 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
     }
-    .subtask {
-        margin-left: 20px;
-        border-left: 2px solid #4A5568;
-        padding-left: 10px;
+    
+    /* Customizing Streamlit Inputs to look cleaner */
+    .stTextInput>div>div>input {
+        background: transparent;
+        border: none;
+        color: #201F1E;
+        box-shadow: none;
+    }
+    .stTextInput>div>div>input:focus {
+        border-bottom: 1px solid #2564CF;
+        box-shadow: none;
+    }
+    
+    /* Sidebar buttons */
+    .stButton>button {
+        width: 100%;
+        text-align: left;
+        border: none;
+        background: transparent;
+        color: #201F1E;
+        padding: 8px 12px;
+        border-radius: 4px;
+        justify-content: flex-start;
+    }
+    .stButton>button:hover {
+        background-color: #EDEBE9;
+        color: #201F1E;
+    }
+    .stButton>button:focus {
+        color: #2564CF;
+        background-color: white;
+        box-shadow: none;
     }
 </style>
+<div class="top-bar">✅ To Do</div>
 """, unsafe_allow_html=True)
 
 # --- State Management ---
@@ -61,190 +127,158 @@ if 'db_inited' not in st.session_state:
     db.init_db()
     st.session_state.db_inited = True
 if 'current_project' not in st.session_state:
-    st.session_state.current_project = 1 # inbox
+    st.session_state.current_project = "My Day" # Using string for smart lists, int for db projects
 if 'clarification_pending' not in st.session_state:
     st.session_state.clarification_pending = None
 
 # --- Sidebar ---
 with st.sidebar:
-    st.title("🎯 Projects")
+    st.markdown("<div style='margin-top: 40px;'></div>", unsafe_allow_html=True)
+    
+    # Smart Lists
+    if st.button("☀️ My Day"): st.session_state.current_project = "My Day"
+    if st.button("⭐ Important"): st.session_state.current_project = "Important"
+    if st.button("📅 Planned"): st.session_state.current_project = "Planned"
+    if st.button("♾️ All"): st.session_state.current_project = "All"
+    if st.button("✔️ Completed"): st.session_state.current_project = "Completed"
+    if st.button("🏠 Tasks"): st.session_state.current_project = "Tasks"
+    
+    st.divider()
+    
+    # Custom Projects
+    st.markdown("<p style='font-size:12px; font-weight:600; color:#605E5C; margin-bottom:5px;'>PROJECTS</p>", unsafe_allow_html=True)
     projects = db.get_projects()
     
     for p in projects:
-        if st.button(f"📁 {p['name'].capitalize()}", key=f"proj_{p['id']}", use_container_width=True):
+        icon = "📥" if p['name'] == 'inbox' else "📋"
+        if st.button(f"{icon} {p['name'].capitalize()}", key=f"proj_{p['id']}"):
             st.session_state.current_project = p['id']
             st.rerun()
             
     st.divider()
-    new_proj = st.text_input("New Project Name")
-    if st.button("Create Project", use_container_width=True) and new_proj:
-        db.add_project(new_proj)
-        st.session_state.current_project = db.get_projects()[-1]['id']
+    new_proj = st.text_input("New Project Name", placeholder="➕ New list", label_visibility="collapsed")
+    if new_proj:
+        new_id = db.add_project(new_proj)
+        st.session_state.current_project = new_id
         st.rerun()
 
-current_proj_name = next((p['name'] for p in projects if p['id'] == st.session_state.current_project), "Unknown")
-st.title(f"📂 {current_proj_name.capitalize()}")
+# Determine current view title
+if isinstance(st.session_state.current_project, str):
+    view_title = st.session_state.current_project
+    # Fetch tasks based on smart list
+    all_tasks = db.get_tasks(include_completed=True)
+    if view_title == "My Day":
+        tasks = [t for t in all_tasks if not t['completed']]
+    elif view_title == "Important":
+        tasks = [t for t in all_tasks if "Important" in t['tags'] and not t['completed']]
+    elif view_title == "Planned":
+        tasks = [t for t in all_tasks if t['due_date'] and not t['completed']]
+    elif view_title == "Completed":
+        tasks = [t for t in all_tasks if t['completed']]
+    elif view_title == "All":
+        tasks = all_tasks
+    else: # Tasks
+        tasks = [t for t in all_tasks if not t['completed']]
+else:
+    proj_name = next((p['name'] for p in projects if p['id'] == st.session_state.current_project), "Unknown")
+    view_title = proj_name.capitalize()
+    tasks = db.get_tasks(project_id=st.session_state.current_project, include_completed=False)
 
-# --- Add Task Area ---
+# Main Title Area
+st.markdown("<div style='margin-top: 40px;'></div>", unsafe_allow_html=True)
+st.markdown(f"<h2 style='color: #2564CF; font-weight: 600; font-size: 24px; margin-bottom: 20px;'>{view_title}</h2>", unsafe_allow_html=True)
+
+# Add Task Input Bar
 with st.container():
     if st.session_state.clarification_pending:
-        pending = st.session_state.clarification_pending
-        st.warning(f"🤔 The AI is unsure about: '{pending['original_input']}'")
-        st.info(f"Question: {pending['question']}")
-        
-        rule_input = st.text_input("Help me understand! (Provide a rule or context for next time):")
-        
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            if st.button("Save Rule & Retry", type="primary"):
-                if rule_input:
-                    db.add_memory_rule(rule_input)
-                st.session_state.clarification_pending = None
-                st.rerun()
-        with col2:
-            if st.button("Cancel"):
-                st.session_state.clarification_pending = None
-                st.rerun()
+        st.warning("Clarification Needed!")
+        st.info(st.session_state.clarification_pending['question'])
+        rule = st.text_input("Teach me what this means for next time:")
+        if st.button("Save & Continue"):
+            db.add_memory_rule(rule)
+            st.session_state.clarification_pending = None
+            st.rerun()
     else:
-        st.markdown("### ✨ New Task")
-        with st.form("new_task_form", clear_on_submit=True):
-            task_input = st.text_input("What needs to be done?", placeholder="e.g. Buy groceries tomorrow")
-            submit_task = st.form_submit_button("Add Task")
-            
-            if submit_task and task_input:
-                with st.spinner("AI is analyzing your task..."):
-                    try:
-                        parsed = llm.parse_task(task_input)
-                        
-                        if parsed.get('needs_clarification'):
-                            st.session_state.clarification_pending = {
-                                "original_input": task_input,
-                                "question": parsed.get('clarification_question', "What do you mean?")
-                            }
-                            st.rerun()
-                        else:
-                            # Standard insertion
-                            title = parsed.get('title', task_input)
-                            desc = parsed.get('description', '')
-                            task_type = parsed.get('task_type', '')
-                            due_date = parsed.get('due_date', None)
-                            tags = parsed.get('tags', [])
-                            
-                            t_id = db.add_task(
-                                title=title,
-                                project_id=st.session_state.current_project,
-                                description=desc,
-                                due_date=due_date,
-                                task_type=task_type
-                            )
-                            for t in tags:
-                                db.add_tag_to_task(t_id, t)
-                            st.success(f"Added task: {title}")
-                            st.rerun()
-                    except Exception as e:
-                        st.error(f"Error parsing task: {e}")
-
-st.divider()
-
-# --- Main Views ---
-tab1, tab2 = st.tabs(["📝 List View", "📅 Calendar View"])
-
-# Fetch Tasks for current project
-tasks = db.get_tasks(project_id=st.session_state.current_project)
-main_tasks = [t for t in tasks if not t['parent_id']]
-subtasks = {t['parent_id']: [] for t in tasks if t['parent_id']}
-for t in tasks:
-    if t['parent_id']:
-        subtasks[t['parent_id']].append(t)
-
-with tab1:
-    if not main_tasks:
-        st.info("No tasks here yet. Add some above!")
-    
-    for t in main_tasks:
-        st.markdown(f"<div class='task-card'>", unsafe_allow_html=True)
-        col1, col2 = st.columns([0.05, 0.95])
+        st.markdown("<div class='add-task-bar'>", unsafe_allow_html=True)
+        col1, col2 = st.columns([0.9, 0.1])
         with col1:
-            if st.checkbox("DONE", key=f"done_{t['id']}", label_visibility="hidden"):
-                db.update_task(t['id'], completed=True)
-                st.rerun()
+            task_input = st.text_input("Add a task", placeholder="Add a task", label_visibility="collapsed", key="task_input")
         with col2:
-            st.markdown(f"<div class='task-title'>{t['title']}</div>", unsafe_allow_html=True)
-            meta = []
-            if t['due_date']: meta.append(f"📅 {t['due_date']}")
-            if t['task_type']: meta.append(f"🏷️ {t['task_type']}")
-            st.markdown(f"<div class='task-meta'>{' | '.join(meta)}</div>", unsafe_allow_html=True)
+            st.write("") # spacing
+            submit = st.button("Add", type="secondary")
             
-            tags_html = "".join([f"<span class='task-tag'>{tag}</span>" for tag in t['tags']])
-            if tags_html: st.markdown(tags_html, unsafe_allow_html=True)
-            
-            if t['description']:
-                st.markdown(f"<p style='font-size:0.9rem; color:#CBD5E0; margin-top:8px;'>{t['description']}</p>", unsafe_allow_html=True)
-                
-            # Expandable Editor & Subtasks
-            with st.expander("Edit / Subtasks"):
-                edit_col1, edit_col2 = st.columns(2)
-                with edit_col1:
-                    new_title = st.text_input("Title", value=t['title'], key=f"title_{t['id']}")
-                    new_desc = st.text_area("Notes/Description", value=t['notes'] or t['description'] or "", key=f"desc_{t['id']}")
-                with edit_col2:
-                    new_date = st.text_input("Due Date (YYYY-MM-DD)", value=t['due_date'] or "", key=f"date_{t['id']}")
-                    new_project = st.selectbox("Project", [p['name'] for p in projects], index=[p['id'] for p in projects].index(t['project_id']), key=f"proj_sel_{t['id']}")
-                
-                if st.button("Save Changes", key=f"save_{t['id']}"):
-                    new_proj_id = next(p['id'] for p in projects if p['name'] == new_project)
-                    db.update_task(t['id'], title=new_title, description=new_desc, due_date=new_date, project_id=new_proj_id)
+        if (submit and task_input) or task_input:
+            with st.spinner("Thinking..."):
+                parsed = llm.parse_task(task_input)
+                if parsed.get('needs_clarification'):
+                    st.session_state.clarification_pending = {
+                        "question": parsed.get('clarification_question', "Can you clarify?")
+                    }
                     st.rerun()
-                
-                st.markdown("**Subtasks**")
-                for sub in subtasks.get(t['id'], []):
-                    scol1, scol2, scol3 = st.columns([0.1, 0.7, 0.2])
-                    with scol1:
-                        if st.checkbox("done", key=f"sdone_{sub['id']}", label_visibility="hidden"):
-                            db.update_task(sub['id'], completed=True)
-                            st.rerun()
-                    with scol2:
-                        st.write(sub['title'])
-                    with scol3:
-                        if st.button("Make Main", key=f"main_{sub['id']}", help="Convert to main task"):
-                            db.update_task(sub['id'], parent_id=None)
-                            st.rerun()
-                            
-                new_sub = st.text_input("Add Subtask", key=f"new_sub_{t['id']}")
-                if st.button("Add Subtask", key=f"add_sub_{t['id']}") and new_sub:
-                    db.add_task(title=new_sub, project_id=t['project_id'], parent_id=t['id'])
+                else:
+                    proj_id = st.session_state.current_project if isinstance(st.session_state.current_project, int) else 1 # default inbox
+                    t_id = db.add_task(
+                        title=parsed.get('title', task_input),
+                        project_id=proj_id,
+                        description=parsed.get('description', ''),
+                        due_date=parsed.get('due_date', None),
+                        task_type=parsed.get('task_type', '')
+                    )
+                    for tg in parsed.get('tags', []):
+                        db.add_tag_to_task(t_id, tg)
+                    if view_title == "Important":
+                        db.add_tag_to_task(t_id, "Important")
+                    st.session_state.submit = True
                     st.rerun()
-                    
-                if st.button("Delete Task", key=f"del_{t['id']}", type="primary"):
-                    db.delete_task(t['id'])
-                    st.rerun()
-
         st.markdown("</div>", unsafe_allow_html=True)
 
-with tab2:
-    calendar_events = []
+# List Tasks
+main_tasks = [t for t in tasks if not t.get('parent_id')]
+
+for t in main_tasks:
+    st.markdown("<div class='task-container'>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([0.05, 0.9, 0.05])
     
-    for t in tasks:
-        if t['due_date']:
-            # Assign color based on task type or project
-            bg_color = "#3182CE" if not t['parent_id'] else "#4A5568"
-            calendar_events.append({
-                "title": t['title'],
-                "start": t['due_date'],
-                "backgroundColor": bg_color,
-                "borderColor": bg_color,
-            })
+    with col1:
+        st.write("") # spacing for alignment
+        is_done = st.checkbox("done", value=bool(t['completed']), key=f"done_{t['id']}", label_visibility="collapsed")
+        if is_done != bool(t['completed']):
+            db.update_task(t['id'], completed=is_done)
+            st.rerun()
             
-    calendar_options = {
-        "headerToolbar": {
-            "left": "today prev,next",
-            "center": "title",
-            "right": "dayGridMonth,timeGridWeek"
-        },
-        "initialView": "dayGridMonth",
-    }
-    
-    if len(calendar_events) > 0:
-        calendar(events=calendar_events, options=calendar_options)
-    else:
-        st.info("No tasks with due dates to show on the calendar.")
+    with col2:
+        title_style = "text-decoration: line-through; color: #605E5C;" if t['completed'] else "color: #201F1E;"
+        st.markdown(f"<p class='task-title' style='{title_style}'>{t['title']}</p>", unsafe_allow_html=True)
+        
+        meta = []
+        if t['task_type']: meta.append(f"<span style='color: #2564CF; font-weight:600;'>{t['task_type']}</span>")
+        if t['due_date']: meta.append(f"📅 {t['due_date']}")
+        meta_html = " • ".join(meta)
+        if meta_html:
+            st.markdown(f"<p class='task-meta'>{meta_html}</p>", unsafe_allow_html=True)
+            
+        with st.expander("Details"):
+            new_title = st.text_input("Title", t['title'], key=f"t_{t['id']}")
+            new_desc = st.text_area("Notes", t['description'] or "", key=f"d_{t['id']}")
+            if st.button("Save", key=f"s_{t['id']}"):
+                db.update_task(t['id'], title=new_title, description=new_desc)
+                st.rerun()
+            if st.button("Delete", key=f"del_{t['id']}"):
+                db.delete_task(t['id'])
+                st.rerun()
+                
+    with col3:
+        st.write("")
+        is_imp = "Important" in t['tags']
+        if st.button("⭐" if is_imp else "☆", key=f"star_{t['id']}"):
+            if is_imp:
+                db.clear_task_tags(t['id']) 
+                for tag in t['tags']: 
+                    if tag != "Important": db.add_tag_to_task(t['id'], tag)
+            else:
+                db.add_tag_to_task(t['id'], "Important")
+            st.rerun()
+            
+    st.markdown("</div>", unsafe_allow_html=True)
+
+st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
